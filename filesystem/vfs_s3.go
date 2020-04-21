@@ -16,6 +16,7 @@ import (
 const (
 	AWS_ACCESS_KEY = OptionName("aws_access_key")
 	AWS_SECRET_KEY = OptionName("aws_secret_key")
+	AWS_ENDPOINT   = OptionName("aws_endpoint")
 )
 
 type S3FileSystem struct {
@@ -26,9 +27,7 @@ func (fs *S3FileSystem) Accept(fl *FileLocation) bool {
 }
 
 func (fs *S3FileSystem) Open(fl *FileLocation) (VirtualFile, error) {
-	sess, err := session.NewSession(aws.NewConfig().WithCredentials(
-		credentials.NewStaticCredentials(Option[AWS_ACCESS_KEY], Option[AWS_SECRET_KEY], ""),
-	))
+	sess, err := awsSession()
 	if err != nil {
 		fmt.Println("failed to create session,", err)
 		return nil, err
@@ -101,4 +100,20 @@ func (vf *VirtualFileS3) Size() int64 {
 func (vf *VirtualFileS3) Close() error {
 	vf.File.Close()
 	return os.Remove(vf.filename)
+}
+
+func awsSession() (*session.Session, error) {
+	var conf aws.Config
+
+	if endpoint, ok := Option[AWS_ENDPOINT]; ok {
+		conf.Endpoint = aws.String(endpoint)
+	}
+
+	if accessKey, ok := Option[AWS_ACCESS_KEY]; ok {
+		if secretKey, ok := Option[AWS_SECRET_KEY]; ok {
+			conf.Credentials = credentials.NewStaticCredentials(accessKey, secretKey, "")
+		}
+	}
+
+	return session.NewSession(&conf)
 }
